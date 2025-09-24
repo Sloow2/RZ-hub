@@ -1,0 +1,99 @@
+-- RZ Script UI (No Features Yet)
+
+-- Create screen GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "RZ_GUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = game.CoreGui
+
+-- Create the toggle button (circular RZ logo)
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Name = "RZToggle"
+toggleBtn.Size = UDim2.new(0, 50, 0, 50)
+toggleBtn.Position = UDim2.new(0, 20, 0, 20)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+toggleBtn.Text = "RZ"
+toggleBtn.Font = Enum.Font.Code
+toggleBtn.TextSize = 20
+toggleBtn.TextColor3 = Color3.new(1, 1, 1)
+toggleBtn.BorderSizePixel = 0
+toggleBtn.AutoButtonColor = false
+toggleBtn.Parent = screenGui
+
+-- Make it a circle
+local uicorner = Instance.new("UICorner")
+uicorner.CornerRadius = UDim.new(1, 0)
+uicorner.Parent = toggleBtn
+
+-- Create the main frame
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 250, 0, 180)
+mainFrame.Position = UDim2.new(0, 80, 0, 20)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+mainFrame.BackgroundTransparency = 0.5
+mainFrame.BorderSizePixel = 0
+mainFrame.Visible = false
+mainFrame.Parent = screenGui
+
+-- Make main frame draggable
+local drag = Instance.new("UIScale")
+drag.Parent = mainFrame
+
+local dragify = function(Frame)
+    local dragToggle = nil
+    local dragInput, mousePos, framePos
+
+    Frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragToggle = true
+            mousePos = input.Position
+            framePos = Frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragToggle = false
+                end
+            end)
+        end
+    end)
+
+    Frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = input
+        end
+    end)
+
+    game:GetService("UserInputService").InputChanged:Connect(function(input)
+        if input == dragInput and dragToggle then
+            local delta = input.Position - mousePos
+            Frame.Position = UDim2.new(
+                framePos.X.Scale,
+                framePos.X.Offset + delta.X,
+                framePos.Y.Scale,
+                framePos.Y.Offset + delta.Y
+            )
+        end
+    end)
+end
+
+dragify(mainFrame)
+
+-- Add 4 feature buttons
+for i = 1, 4 do
+    local button = Instance.new("TextButton")
+    button.Name = "FeatureButton" .. i
+    button.Size = UDim2.new(0, 100, 0, 30)
+    button.Position = UDim2.new(0, 15, 0, 15 + ((i - 1) * 40))
+    button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    button.BorderSizePixel = 0
+    button.Text = "Feature " .. i
+    button.TextColor3 = Color3.new(1, 1, 1)
+    button.Font = Enum.Font.Code
+    button.TextSize = 16
+    button.Parent = mainFrame
+end
+
+-- Toggle open/close
+toggleBtn.MouseButton1Click:Connect(function()
+    mainFrame.Visible = not mainFrame.Visible
+end)
