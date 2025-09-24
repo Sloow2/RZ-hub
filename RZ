@@ -1,12 +1,17 @@
--- RZ Script UI (No Features Yet)
+-- RZ Script UI with corners, draggable UI + logo, smooth logo move, and "Float" feature
 
--- Create screen GUI
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+
+-- ScreenGui
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "RZ_GUI"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = game.CoreGui
 
--- Create the toggle button (circular RZ logo)
+-- Create toggle button (circular RZ logo)
 local toggleBtn = Instance.new("TextButton")
 toggleBtn.Name = "RZToggle"
 toggleBtn.Size = UDim2.new(0, 50, 0, 50)
@@ -20,12 +25,12 @@ toggleBtn.BorderSizePixel = 0
 toggleBtn.AutoButtonColor = false
 toggleBtn.Parent = screenGui
 
--- Make it a circle
-local uicorner = Instance.new("UICorner")
-uicorner.CornerRadius = UDim.new(1, 0)
-uicorner.Parent = toggleBtn
+-- Make toggleBtn a circle with rounded corners
+local toggleUICorner = Instance.new("UICorner")
+toggleUICorner.CornerRadius = UDim.new(1, 0)
+toggleUICorner.Parent = toggleBtn
 
--- Create the main frame
+-- Create main frame
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
 mainFrame.Size = UDim2.new(0, 250, 0, 180)
@@ -36,50 +41,161 @@ mainFrame.BorderSizePixel = 0
 mainFrame.Visible = false
 mainFrame.Parent = screenGui
 
--- Make main frame draggable
-local drag = Instance.new("UIScale")
-drag.Parent = mainFrame
+-- Rounded corners for mainFrame
+local mainUICorner = Instance.new("UICorner")
+mainUICorner.CornerRadius = UDim.new(0, 10)
+mainUICorner.Parent = mainFrame
 
-local dragify = function(Frame)
-    local dragToggle = nil
-    local dragInput, mousePos, framePos
+-- Drag utility function
+local function makeDraggable(frame)
+    local dragging, dragInput, dragStart, startPos
 
-    Frame.InputBegan:Connect(function(input)
+    frame.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragToggle = true
-            mousePos = input.Position
-            framePos = Frame.Position
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
-                    dragToggle = false
+                    dragging = false
                 end
             end)
         end
     end)
 
-    Frame.InputChanged:Connect(function(input)
+    frame.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement then
             dragInput = input
         end
     end)
 
     game:GetService("UserInputService").InputChanged:Connect(function(input)
-        if input == dragInput and dragToggle then
-            local delta = input.Position - mousePos
-            Frame.Position = UDim2.new(
-                framePos.X.Scale,
-                framePos.X.Offset + delta.X,
-                framePos.Y.Scale,
-                framePos.Y.Offset + delta.Y
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
             )
         end
     end)
 end
 
-dragify(mainFrame)
+makeDraggable(mainFrame)
 
--- Add 4 feature buttons
-for i = 1, 4 do
+-- Smooth dragging for toggleBtn (logo)
+local draggingLogo, dragInputLogo, dragStartLogo, startPosLogo
+local goalPos = toggleBtn.Position
+local tweenSpeed = 0.15
+
+toggleBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        draggingLogo = true
+        dragStartLogo = input.Position
+        startPosLogo = toggleBtn.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                draggingLogo = false
+            end
+        end)
+    end
+end)
+
+toggleBtn.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        dragInputLogo = input
+    end
+end)
+
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+    if input == dragInputLogo and draggingLogo then
+        local delta = input.Position - dragStartLogo
+        goalPos = UDim2.new(
+            startPosLogo.X.Scale,
+            startPosLogo.X.Offset + delta.X,
+            startPosLogo.Y.Scale,
+            startPosLogo.Y.Offset + delta.Y
+        )
+    end
+end)
+
+-- Tween the toggleBtn position smoothly
+RunService.RenderStepped:Connect(function()
+    local currentPos = toggleBtn.Position
+    local newX = currentPos.X.Offset + (goalPos.X.Offset - currentPos.X.Offset) * tweenSpeed
+    local newY = currentPos.Y.Offset + (goalPos.Y.Offset - currentPos.Y.Offset) * tweenSpeed
+    toggleBtn.Position = UDim2.new(currentPos.X.Scale, newX, currentPos.Y.Scale, newY)
+end)
+
+-- Toggle mainFrame visibility on toggleBtn click
+toggleBtn.MouseButton1Click:Connect(function()
+    mainFrame.Visible = not mainFrame.Visible
+end)
+
+-- Feature: Float
+local floatEnabled = false
+local floatPart = nil
+
+local function createFloatPart()
+    local part = Instance.new("Part")
+    part.Name = "FloatPart"
+    part.Size = Vector3.new(6, 1, 6)
+    part.Anchored = true
+    part.CanCollide = true
+    part.Material = Enum.Material.Studded
+    part.Transparency = 0
+    part.Color = Color3.fromRGB(100, 100, 255)
+    part.TopSurface = Enum.SurfaceType.Smooth
+    part.BottomSurface = Enum.SurfaceType.Smooth
+    part.Parent = workspace
+    return part
+end
+
+-- Follow player with smoothing
+local followSpeed = 10 -- higher is faster
+
+RunService.Heartbeat:Connect(function(dt)
+    if floatEnabled and floatPart and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = LocalPlayer.Character.HumanoidRootPart
+        local targetPos = hrp.Position - Vector3.new(0, hrp.Size.Y/2 + floatPart.Size.Y/2, 0)
+        local currentPos = floatPart.Position
+        local newPos = currentPos:Lerp(targetPos, math.clamp(followSpeed * dt, 0, 1))
+        floatPart.CFrame = CFrame.new(newPos)
+    end
+end)
+
+-- Create Float button
+local floatBtn = Instance.new("TextButton")
+floatBtn.Name = "FloatButton"
+floatBtn.Size = UDim2.new(0, 100, 0, 30)
+floatBtn.Position = UDim2.new(0, 15, 0, 15)
+floatBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+floatBtn.BorderSizePixel = 0
+floatBtn.Text = "Float: OFF"
+floatBtn.TextColor3 = Color3.new(1, 1, 1)
+floatBtn.Font = Enum.Font.Code
+floatBtn.TextSize = 16
+floatBtn.Parent = mainFrame
+
+floatBtn.MouseButton1Click:Connect(function()
+    floatEnabled = not floatEnabled
+    if floatEnabled then
+        floatBtn.Text = "Float: ON"
+        if not floatPart or not floatPart.Parent then
+            floatPart = createFloatPart()
+        end
+    else
+        floatBtn.Text = "Float: OFF"
+        if floatPart and floatPart.Parent then
+            floatPart:Destroy()
+            floatPart = nil
+        end
+    end
+end)
+
+-- Add remaining placeholder feature buttons
+for i = 2, 4 do
     local button = Instance.new("TextButton")
     button.Name = "FeatureButton" .. i
     button.Size = UDim2.new(0, 100, 0, 30)
@@ -92,8 +208,3 @@ for i = 1, 4 do
     button.TextSize = 16
     button.Parent = mainFrame
 end
-
--- Toggle open/close
-toggleBtn.MouseButton1Click:Connect(function()
-    mainFrame.Visible = not mainFrame.Visible
-end)
